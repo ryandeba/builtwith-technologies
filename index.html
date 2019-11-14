@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.js"></script>
+
+		<style>
+			* {
+				font-size: 20px;
+			}
+
+			body {
+				background-color: #ccc;
+			}
+
+			textarea {
+				min-height: 200px;
+				width: 100%;
+			}
+
+			td {
+				white-space: nowrap;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="app">
+			<div>builtwith json</div>
+			<textarea v-model="json"></textarea>
+
+			<hr>
+
+			<div>
+				<button type="button" v-on:click="selectTable">Select All</button>
+
+				<table border="1" ref="table">
+					<thead>
+						<tr>
+							<th>subdomain</th>
+							<th>domain</th>
+							<th v-for="key in techKeys">{{ key }}</th>
+						</tr>
+					</thead>
+
+					<tbody>
+						<tr v-for="row in formattedData">
+							<td>{{ row.subdomain }}</td>
+							<td>{{ row.domain }}</td>
+							<td v-for="key in techKeys">{{ row[key] }}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</body>
+
+	<script>
+		(function() {
+			new Vue({
+				el: "#app",
+
+				data: {
+					json: ``,
+					obj: {}
+				},
+
+				computed: {
+					formattedData: function() {
+						return (this.obj.Results || []).map(function(res) {
+							return res.Result.Paths
+								.filter(function(path) {
+									return path.Technologies.length > 0;
+								})
+								.map(function(path) {
+									var techs = {};
+
+									path.Technologies.forEach(function(tech) {
+										techs[tech.Tag] = techs[tech.Tag] || [];
+										techs[tech.Tag].push(tech.Name);
+									});
+
+									Object.keys(techs).forEach(function(key) {
+										techs[key] = techs[key].join(", ");
+									});
+
+									return {
+										domain: path.Domain,
+										subdomain: path.SubDomain,
+										...techs
+									}
+								});
+						}).flat();
+					},
+
+					techKeys: function() {
+						var keys = {};
+
+						this.formattedData.forEach(function(row) {
+							Object.keys(row).forEach(function(key) {
+								keys[key] = "";
+							});
+						});
+
+						delete keys.domain;
+						delete keys.subdomain;
+
+						return Object.keys(keys);
+					},
+				},
+
+				watch: {
+					json: function() {
+						try {
+							this.obj = JSON.parse(this.json);
+						} catch (e) {
+							this.obj = {};
+						}
+					}
+				},
+
+				methods: {
+					selectTable: function() {
+						selectElementContents(this.$refs.table);
+					}
+				}
+			});
+
+			function selectElementContents(el) {
+				var body = document.body, range, sel;
+				if (document.createRange && window.getSelection) {
+					range = document.createRange();
+					sel = window.getSelection();
+					sel.removeAllRanges();
+					try {
+						range.selectNodeContents(el);
+						sel.addRange(range);
+					} catch (e) {
+						range.selectNode(el);
+						sel.addRange(range);
+					}
+				} else if (body.createTextRange) {
+					range = body.createTextRange();
+					range.moveToElementText(el);
+					range.select();
+				}
+			}
+		})();
+	</script>
+</html>
+
