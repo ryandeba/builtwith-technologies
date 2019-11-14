@@ -15,7 +15,10 @@
 
 			textarea {
 				min-height: 200px;
-				width: 100%;
+			}
+
+			label {
+				display: grid;
 			}
 
 			td {
@@ -26,8 +29,36 @@
 
 	<body>
 		<div id="app">
-			<div>builtwith json</div>
-			<textarea v-model="json"></textarea>
+			<div style="display: grid; grid-gap: 10px; width: 600px;">
+				<label>
+					API Key
+					<input type="text" v-model="apiKey" placeholder="API Key">
+				</label>
+
+				<label>
+					Domains
+
+					<textarea v-model="domains"></textarea>
+				</label>
+
+				<button type="button" v-on:click="load" :disabled="!Boolean(apiKey) || !Boolean(domains) || loading">
+					<template v-if="!Boolean(apiKey)">
+						Enter API Key above
+					</template>
+
+					<template v-else-if="!Boolean(domains)">
+						Enter at least 1 domain above
+					</template>
+
+					<template v-else-if="loading">
+						Loading...
+					</template>
+
+					<template v-else>
+						CC click here!
+					</template>
+				</button>
+			</div>
 
 			<hr>
 
@@ -44,7 +75,7 @@
 					</thead>
 
 					<tbody>
-						<tr v-for="row in formattedData">
+						<tr v-for="row in formattedResults">
 							<td>{{ row.subdomain }}</td>
 							<td>{{ row.domain }}</td>
 							<td v-for="key in techKeys">{{ row[key] }}</td>
@@ -61,13 +92,75 @@
 				el: "#app",
 
 				data: {
-					json: ``,
-					obj: {}
+					apiKey: "",
+					domains: "",
+					responses: [],
+					formattedResults: [],
+					obj: {},
+					loading: false
 				},
 
 				computed: {
-					formattedData: function() {
-						return (this.obj.Results || []).map(function(res) {
+					domainChunks: function() {
+						var domains = this.domains.replace("\r", "").split("\n").map(function(domain) { return domain.trim(); });
+
+						var chunks = [];
+
+						var chunkSize = 16;
+
+						for (var i = 0; i < domains.length; i += chunkSize) {
+							chunks.push(domains.slice(i, i+chunkSize));
+						}
+
+						return chunks;
+					},
+
+					techKeys: function() {
+						var keys = {};
+
+						this.formattedResults.forEach(function(row) {
+							Object.keys(row).forEach(function(key) {
+								keys[key] = "";
+							});
+						});
+
+						delete keys.domain;
+						delete keys.subdomain;
+
+						return Object.keys(keys);
+					},
+				},
+
+				methods: {
+					selectTable: function() {
+						selectElementContents(this.$refs.table);
+					},
+
+					load: function() {
+						var self = this;
+
+						self.loading = true;
+						self.responses = [];
+
+						var loadPromise = self.domainChunks.reduce(function(promiseChain, domains) {
+							return promiseChain
+								.then(function() {
+									return axios.get(`https://api.builtwith.com/v13/api.json?KEY=${self.apiKey}&LOOKUP=${domains.join(",")}&LIVEONLY=yes`)
+										.then(function(response) {
+											self.responses = self.responses.concat(response.data.Results);
+										});
+								});
+						}, Promise.resolve())
+
+						loadPromise
+							.then(function() {
+								self.loading = false;
+							})
+							.then(self.formatResponses);
+					},
+
+					formatResponses: function() {
+						this.formattedResults = this.responses.map(function(res) {
 							return res.Result.Paths
 								.filter(function(path) {
 									return path.Technologies.length > 0;
@@ -92,37 +185,6 @@
 								});
 						}).flat();
 					},
-
-					techKeys: function() {
-						var keys = {};
-
-						this.formattedData.forEach(function(row) {
-							Object.keys(row).forEach(function(key) {
-								keys[key] = "";
-							});
-						});
-
-						delete keys.domain;
-						delete keys.subdomain;
-
-						return Object.keys(keys);
-					},
-				},
-
-				watch: {
-					json: function() {
-						try {
-							this.obj = JSON.parse(this.json);
-						} catch (e) {
-							this.obj = {};
-						}
-					}
-				},
-
-				methods: {
-					selectTable: function() {
-						selectElementContents(this.$refs.table);
-					}
 				}
 			});
 
