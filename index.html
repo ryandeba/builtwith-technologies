@@ -76,9 +76,9 @@
 
 					<tbody>
 						<tr v-for="row in formattedResults">
-							<td>{{ row.subdomain }}</td>
-							<td>{{ row.domain }}</td>
-							<td v-for="key in techKeys">{{ row[key] }}</td>
+							<td>{{ row.subdomain || '-' }}</td>
+							<td>{{ row.domain || '-' }}</td>
+							<td v-for="key in techKeys">{{ row[key] || '-' }}</td>
 						</tr>
 					</tbody>
 				</table>
